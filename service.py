@@ -23,12 +23,15 @@ def process_image():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    print('[log] recieved POST predict')
-    print('!!!!! Files')
-    print(F.request.files)
-    print('!!!!! Data')
-    print(F.request.data)
-    return 'acne: 0.2'
+    # test sending images
+    file = F.request.files['image']
+    # Read the image via file.stream
+    img = Image.open(file.stream)
+
+    return jsonify({'msg': 'success', 
+                    'size': [img.width, img.height],
+                   'disease': 'acne',
+                   'morphology': ['бугорок', 'пузырек']})
 
 
 
