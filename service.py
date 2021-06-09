@@ -12,7 +12,7 @@ from PIL import Image
 import torch.nn as nn
 
 app = Flask(__name__)
-device = torch.device('cuda:1')
+device = torch.device('cuda:0')
 
 primary = np.array(['пятно+эритема', 'бугорок', 'узел', 'папула+бляшка+комедон', 'волдырь', 'пузырек', 'пузырь', 'гнойничок'])
 
@@ -36,9 +36,16 @@ def load_img(b_stream):
 
 def _np(t): return t.detach().cpu().numpy()
 
+print('Loading models...')
 morph_model = load_model('logs/weights/run_20210608_140314', len(primary))
 dis_model = load_model('logs/weights/run_20210608_204404', len(diseases))
-
+cv_dis_fldrs = ['logs/weights/run_20210608_113432',
+                'logs/weights/run_20210608_113224',
+                'logs/weights/run_20210608_113219',
+                'logs/weights/run_20210608_142811',
+                'logs/weights/run_20210608_140849']
+cv_dis_models = [load_model(fldr, len(diseases)) for fldr in cv_dis_fldrs]
+print('Models loaded')
 
 @app.route('/')
 def hello_world():
@@ -72,6 +79,38 @@ def predict():
     return jsonify({'msg': 'success',
                    'disease': pred_disease,
                    'morphology': pred_morph})
+
+def get_entropy(probs): return np.sum(-probs*np.log(probs), axis=1)
+def get_expected(L): return np.stack(L, axis=0).mean(axis=0)
+
+@app.route('/uncertainty', methods=['POST'])
+def uncertainty():
+    # test sending images
+    file = F.request.files['image']
+    # Read the image via file.stream
+    img = load_img(file.stream)
+    # inference
+    softmax = nn.Softmax(dim=1)
+    with torch.no_grad(): 
+        probs = [_np(softmax(m(img))) for m in cv_dis_models]
+    # compute uncertainty
+    expected_probs = get_expected(probs)
+    entropy_of_expected = get_entropy(expected_probs)
+    expected_entropy = get_expected([get_entropy(_) for _ in probs])
+
+    totalU = entropy_of_expected
+    dataU = expected_entropy
+    knowU = totalU - dataU
+    
+    # ensemble prediction
+    ensemble_pred = np.argmax(expected_probs, axis=-1)[0]
+    pred_disease = diseases[ensemble_pred].item()
+
+    return jsonify({'msg': 'success',
+                   'disease': pred_disease,
+                    'data_uncertainty': dataU.item(),
+                    'knowledge_uncertainty': knowU.item(),
+                   'total_uncertainty': totalU.item()})
 
 
 
