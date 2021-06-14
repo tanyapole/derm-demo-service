@@ -38,7 +38,15 @@ def _np(t): return t.detach().cpu().numpy()
 
 print('Loading models...')
 morph_model = load_model('logs/weights/run_20210608_140314', len(primary))
-dis_model = load_model('logs/weights/run_20210608_204404', len(diseases))
+ds_dis_fldrs = [
+    'logs/weights/run_20210614_134931',
+    'logs/weights/run_20210614_122929',
+    'logs/weights/run_20210614_083858',
+    'logs/weights/run_20210614_083507',
+    'logs/weights/run_20210613_233526',
+]
+ds_dis_models = [load_model(fldr, len(diseases)) for fldr in ds_dis_fldrs]
+
 cv_dis_fldrs = [
     'logs/weights/run_20210614_134732',
     'logs/weights/run_20210614_083901',
@@ -73,10 +81,14 @@ def predict():
     # inference
     with torch.no_grad():
         morph_pred = morph_model(img)
-        dis_pred = dis_model(img)
+    softmax = nn.Softmax(dim=1)
+    with torch.no_grad(): 
+        probs = [_np(softmax(m(img))) for m in ds_dis_models]
+    expected_probs = get_expected(probs)
     # convert prediction to human readable
     pred_morph = primary[_np(morph_pred > 0)[0]].tolist()
-    pred_disease = diseases[_np(dis_pred)[0].argmax()].item()
+    ensemble_pred = np.argmax(expected_probs, axis=-1)[0]
+    pred_disease = diseases[ensemble_pred].item()
 
     return jsonify({'msg': 'success',
                    'disease': pred_disease,
