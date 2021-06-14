@@ -39,11 +39,13 @@ def _np(t): return t.detach().cpu().numpy()
 print('Loading models...')
 morph_model = load_model('logs/weights/run_20210608_140314', len(primary))
 dis_model = load_model('logs/weights/run_20210608_204404', len(diseases))
-cv_dis_fldrs = ['logs/weights/run_20210608_113432',
-                'logs/weights/run_20210608_113224',
-                'logs/weights/run_20210608_113219',
-                'logs/weights/run_20210608_142811',
-                'logs/weights/run_20210608_140849']
+cv_dis_fldrs = [
+    'logs/weights/run_20210614_134732',
+    'logs/weights/run_20210614_083901',
+    'logs/weights/run_20210613_233015',
+    'logs/weights/run_20210613_232242',
+    'logs/weights/run_20210613_231954',
+]
 cv_dis_models = [load_model(fldr, len(diseases)) for fldr in cv_dis_fldrs]
 print('Models loaded')
 
