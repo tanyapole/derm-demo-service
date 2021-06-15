@@ -15,6 +15,7 @@ app = Flask(__name__)
 device = torch.device('cuda:0')
 
 primary = np.array(['пятно+эритема', 'бугорок', 'узел', 'папула+бляшка+комедон', 'волдырь', 'пузырек', 'пузырь', 'гнойничок'])
+use_primary = np.array([0,2,3,5,6,7])
 
 diseases = np.array(['атопический дерматит', 'акне', 'псориаз', 'розацеа', 'бородавки', 'герпес', 'красный полский лишай', 'витилиго', 'аллергический контактный дерматит', 'экзема', 'дерматомикозы', 'буллезный пемфигоид', 'пузырчатка', 'контагиозный моллск', 'крапивница', 'себорейный кератоз', 'чесотка', 'себорейный дерматит', 'актинический кератоз', 'базалиома'])
 
@@ -37,7 +38,15 @@ def load_img(b_stream):
 def _np(t): return t.detach().cpu().numpy()
 
 print('Loading models...')
-morph_model = load_model('logs/weights/run_20210608_140314', len(primary))
+ds_morph_fldrs = [
+    'logs/weights/run_20210614_173615',
+    'logs/weights/run_20210614_154853',
+    'logs/weights/run_20210614_141023',
+    'logs/weights/run_20210614_122605',
+    'logs/weights/run_20210614_104527',
+]
+ds_morph_models = [load_model(fldr, len(use_primary)) for fldr in ds_morph_fldrs]
+
 ds_dis_fldrs = [
     'logs/weights/run_20210614_134931',
     'logs/weights/run_20210614_122929',
@@ -79,14 +88,15 @@ def predict():
     # Read the image via file.stream
     img = load_img(file.stream)
     # inference
-    with torch.no_grad():
-        morph_pred = morph_model(img)
+    sigmoid = nn.Sigmoid()
     softmax = nn.Softmax(dim=1)
     with torch.no_grad(): 
+        morph_probs = [_np(sigmoid(m(img))) for m in ds_morph_models]
         probs = [_np(softmax(m(img))) for m in ds_dis_models]
+    morph_expected_probs = get_expected(morph_probs)[0]
     expected_probs = get_expected(probs)
     # convert prediction to human readable
-    pred_morph = primary[_np(morph_pred > 0)[0]].tolist()
+    pred_morph = primary[np.array(use_primary)[morph_expected_probs > 0.5]].tolist()
     ensemble_pred = np.argmax(expected_probs, axis=-1)[0]
     pred_disease = diseases[ensemble_pred].item()
 
