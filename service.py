@@ -12,7 +12,7 @@ from PIL import Image
 import torch.nn as nn
 
 app = Flask(__name__)
-device = torch.device('cuda:0')
+device = torch.device('cuda:1')
 
 primary = np.array(['пятно+эритема', 'бугорок', 'узел', 'папула+бляшка+комедон', 'волдырь', 'пузырек', 'пузырь', 'гнойничок'])
 use_primary = np.array([0,2,3,5,6,7])
